@@ -76,7 +76,7 @@ This is a side project I've been working on. A full stack expense spliting app -
 
 
 ## Architecture Diagram
-![SplitApp](Architecture_Diagram.png)
+![SplitApp](docs/Architecture_Diagram.png)
 
 ## Technologies used
 This project was created using the following technologies.
