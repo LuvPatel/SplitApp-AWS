@@ -40,6 +40,8 @@ This is a side project I've been working on. A full stack expense spliting app -
 
 ![Features](https://raw.githubusercontent.com/tuzup/SplitApp/master/Screenshots/combined-screenshot.png)
 
+![SplitApp](Screenshots/Group-View-Page.jpg)
+
 ## Key Features
 - Create user groups and track group expense 
 - Keep track of shared expenses and settle your corresponding balances in a convenient and personalized way. 
