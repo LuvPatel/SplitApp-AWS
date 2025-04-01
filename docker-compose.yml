@@ -1,0 +1,27 @@
+services:
+  container1:
+    # build:
+    #    context: ./container1
+    image : splitapp:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - network1
+    volumes:
+      - .:/etc/data  
+  container2:
+    # build:
+    #    context: ./container2
+    image : splitapp_backend:latest
+    ports:
+      - "3001:3001"
+    networks:
+      - network1
+    volumes:
+      - .:/etc/data  
+networks:
+  network1:
+
+volumes:
+  .:
+

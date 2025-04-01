@@ -2,7 +2,9 @@ import axios from 'axios'
 
 
 //const API = axios.create({ baseURL: 'http://localhost:3001'})
-const API = axios.create({ baseURL: ''})
+// const API = axios.create({ baseURL: 'http://3.137.219.229:3001'})
+// const API = axios.create({ baseURL: 'http://184.72.105.65:3001'})
+const API = axios.create({ baseURL: 'http://BackendLoadBalancer-89743446.us-east-1.elb.amazonaws.com'})
 
 const profile = JSON.parse(localStorage.getItem('profile'))
 

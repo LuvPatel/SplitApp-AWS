@@ -1,0 +1,408 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create a VPC, subnets, EC2, and DocumentDB.
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: pem-key
+
+  LatestAmazonLinuxAMI:
+    Description: Latest Amazon Linux 2 AMI ID
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
+
+Resources:
+  # VPC
+  MyVPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: "Name"
+          Value: "MyVPC"
+
+  # Public Subnet
+  PublicSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: "10.0.1.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      Tags:
+        - Key: "Name"
+          Value: "PublicSubnet"
+  
+  # Public Subnet 2 (New)
+  PublicSubnet2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: "10.0.4.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 2, !GetAZs "" ]  # Availability Zone 1
+      Tags:
+        - Key: "Name"
+          Value: "PublicSubnet2"
+
+  # Private Subnet 1
+  PrivateSubnet1:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: "10.0.2.0/24"
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      Tags:
+        - Key: "Name"
+          Value: "PrivateSubnet1"
+
+  # Private Subnet 2
+  PrivateSubnet2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: "10.0.3.0/24"
+      AvailabilityZone: !Select [ 2, !GetAZs "" ]
+      Tags:
+        - Key: "Name"
+          Value: "PrivateSubnet2"
+
+  # Internet Gateway
+  MyInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: "MyInternetGateway"
+
+  AttachGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref MyInternetGateway
+    DependsOn: 
+      - MyInternetGateway
+      - MyVPC
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: "Name"
+          Value: "PublicRouteTable"
+
+  PublicRoute:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref MyInternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table
+  PrivateRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: "Name"
+          Value: "PrivateRouteTable"
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Group for Public Subnet
+  PublicSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow HTTP and SSH traffic"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 3001
+          ToPort: 3001
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: "0.0.0.0/0"
+
+  # Security Group for Private Subnet
+  PrivateSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow internal traffic and DocumentDB"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 27017
+          ToPort: 27017
+          SourceSecurityGroupId: !Ref PublicSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: "0.0.0.0/0"
+
+
+  BackendLoadBalanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Backend Load Balancer
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: BackendLoadBalanceSG
+
+  BackendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Protocol: HTTP
+      Port: 3001
+      VpcId: !Ref MyVPC
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 3001
+      HealthCheckPath: /
+      Tags:
+        - Key: Name
+          Value: BackendTargetGroup
+
+  BackendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref BackendLoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref BackendTargetGroup
+
+  BackendLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: BackendLoadBalancer
+      Subnets:
+        - Ref: PublicSubnet
+        - Ref: PublicSubnet2
+      SecurityGroups:
+        - Ref: BackendLoadBalanceSG
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+      Tags:
+        - Key: Name
+          Value: BackendLoadBalancer
+
+  # EC2 Instance in Public Subnet
+  MyEC2InstanceLaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
+    Properties:
+      LaunchTemplateName: BackendLaunchTemplate
+      LaunchTemplateData:
+        InstanceType: "t2.micro"
+        SecurityGroupIds:
+          - !Ref PublicSecurityGroup
+        # SubnetId: !Ref PublicSubnet
+        ImageId: !Ref LatestAmazonLinuxAMI
+        KeyName: !Ref KeyName
+        UserData:
+          Fn::Base64: !Sub |
+              #!/bin/bash
+              # Update and install Docker
+              sudo yum update -y
+
+              sudo yum install docker -y
+              sudo service docker start
+              sudo systemctl enable docker
+
+              sudo apt install python3-pip
+              sudo yum install -y jq
+
+              # # Retrieve MongoDB URL from SSM Parameter Store
+              # MONGOURL="mongodb://docdbadmin:password123@${MyDocumentDBCluster.Endpoint}:${MyDocumentDBCluster.Port}/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false"
+
+              # Fetch MongoDB URL from SSM Parameter Store
+              MONGOURL=$(aws ssm get-parameter --name "/my-app/mongourl" --query "Parameter.Value" --output text)
+
+              # Pull the Docker image from Docker Hub
+              sudo docker pull luvpatel/splitapp:temp
+
+              sudo docker run -d -p 3001:3001 \
+                -e MONGOURL="$MONGOURL" \
+                luvpatel/splitapp:temp
+
+              # sudo docker run -d -p 3001:3001 \
+              #   -e MONGOURL=mongodb://docdbadmin:password123@${MyDocumentDBCluster.Endpoint}:${MyDocumentDBCluster.Port}/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false \
+              #   luvpatel/splitapp:temp
+
+    DependsOn:
+      - AttachGateway
+      - PublicSubnet
+      - MyDocumentDBCluster
+      - MyDocumentDBInstance
+
+
+  # Backend Auto Scaling Group
+  BackendAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet
+        - !Ref PublicSubnet2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref MyEC2InstanceLaunchTemplate
+        Version: !GetAtt MyEC2InstanceLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 2
+      Tags:
+        - Key: Name
+          Value: BackendInstance
+          PropagateAtLaunch: true
+      TargetGroupARNs:
+        - !Ref BackendTargetGroup
+
+  MyDocumentDBCluster:
+    Type: "AWS::DocDB::DBCluster"
+    Properties:
+      DBClusterIdentifier: "MyDocumentDBCluster"
+      MasterUsername: "docdbadmin"  # Updated username
+      MasterUserPassword: "password123"  # Replace with a secure password
+      VpcSecurityGroupIds:
+        - !Ref PrivateSecurityGroup
+      DBSubnetGroupName: !Ref MyDocumentDBSubnetGroup
+      StorageEncrypted: true
+      EngineVersion: "5.0"
+  
+  # DocumentDB Instance
+  MyDocumentDBInstance:
+    Type: "AWS::DocDB::DBInstance"
+    Properties:
+      DBClusterIdentifier: !Ref MyDocumentDBCluster  # Attach to the cluster
+      DBInstanceClass: "db.t3.medium"  # Choose an instance type
+      AvailabilityZone: us-east-1c  # Select the first AZ
+      PreferredMaintenanceWindow: "sun:23:00-mon:01:30"  # Optional
+      Tags:
+        - Key: Name
+          Value: "MyDocumentDBInstance"
+
+  # DB Subnet Group
+  MyDocumentDBSubnetGroup:
+    Type: "AWS::DocDB::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for DocumentDB"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  S3BucketPolicy00splitappreact0000fvS:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::S3::BucketPolicy"
+    DeletionPolicy: "Retain"
+    Properties:
+      Bucket:
+        Ref: "S3Bucket00splitappreact00jIv1z"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource: "arn:aws:s3:::splitapp-react-testt/*"
+          Action: "s3:GetObject"
+          Effect: "Allow"
+          Principal: "*"
+          Sid: "PublicReadGetObject"
+
+  S3Bucket00splitappreact00jIv1z:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::S3::Bucket"
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: "index.html"
+        ErrorDocument: "index.html"
+      PublicAccessBlockConfiguration:
+        RestrictPublicBuckets: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        BlockPublicAcls: false
+      BucketName: "ssplitapp-react-testt"
+      OwnershipControls:
+        Rules:
+        - ObjectOwnership: "BucketOwnerEnforced"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - BucketKeyEnabled: true
+          ServerSideEncryptionByDefault:
+            SSEAlgorithm: "AES256"
+
+  MongoDBURLParameter:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: "/my-app/mongourl"
+      Type: "String"
+      Value: !Sub "mongodb://docdbadmin:password123@${MyDocumentDBCluster.Endpoint}:${MyDocumentDBCluster.Port}/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false"
+      Description: 'DocumentDB Connection URL'
+
+  # Create a Secret in Secrets Manager
+  DocumentDBCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: DocumentDBKeys
+      Description: "Secrets for DocumentDB username and password"
+      SecretString: !Sub |
+        {
+          "username": "docdbadmin",
+          "password": "password123"
+        }
+
+  
+Outputs:
+  DocumentDBConnectionString:
+    Description: "Connection string for DocumentDB cluster"
+    Value: !Sub |
+      mongodb://docdbadmin:password123@${MyDocumentDBCluster.Endpoint}:${MyDocumentDBCluster.Port}/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
+    Export:
+      Name: !Sub "${AWS::StackName}-DocumentDBConnectionString"
