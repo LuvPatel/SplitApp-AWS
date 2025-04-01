@@ -1,3 +1,8 @@
+# SplitApp Cloud Architecture
+This project demonstrates the deployment of the application on the cloud using AWS services, adhering to the AWS Well-Architected Framework. The application backend is built with Express & Nodejs, the frontend with React, and the database is managed using MongoDB.
+
+
+  
 
 
 <div align="center">
@@ -6,7 +11,6 @@
   </a>
 
   <h2 align="center">SplitApp</h2>
-
   <p align="center">
     Build with the MERN stack (MongoDB, Express, React and NodeJS).
     <br />
@@ -42,13 +46,37 @@ This is a side project I've been working on. A full stack expense spliting app -
 
 ![SplitApp](Screenshots/Group-View-Page.jpg)
 
-## Key Features
+## Application Features
 - Create user groups and track group expense 
 - Keep track of shared expenses and settle your corresponding balances in a convenient and personalized way. 
 - Get Analytical graphs to understand your expenditure trend 
 - Multiple user registration.
 - Authentication using JSON web token (JWT) 
 
+## Architectural Fetures
+
+**Compute**:
+  * Application servers deployed on EC2 instances behind an Auto Scaling Group to ensure high availability and fault tolerance.
+  * Frontend served via S3 Website hosting for fast and secure content delivery.
+     
+**Networking**:
+  * Enforced security via VPC with public and private subnets.
+  * Application Load Balancer for routing and distributing traffic.
+    
+**Database**:
+  * MySQL database hosted on Amazon DocumentDB, optimized for multi-AZ deployments.
+  * Credentials securely managed using AWS Secrets Manager.
+    
+**Serverless Components**:
+  * AWS Lambda for processing background tasks.
+  * API Gateway for efficient and scalable API management.
+    
+**Monitoring and Logging**:
+  * Application metrics and logs managed using Amazon CloudWatch.
+
+
+## Architecture Diagram
+![SplitApp](Architecture_Diagram.png)
 
 ## Technologies used
 This project was created using the following technologies.
@@ -70,8 +98,14 @@ This project was created using the following technologies.
 - JWT (For authentication)
 - bcryptjs (for data encryption)
 
+#### Cloud Services
+
+**AWS Services**: 
+
+EC2, RDS, S3, VPC, Lambda, API Gateway, CloudFront, Cognito, SQS, SNS, CloudWatch, CloudTrail, Secrets Manager
+
 #### Database
-MongoDB (MongoDB Atlas)
+MongoDB (MongoDB Atlas) & DocumentDB (AWS)
 
 ## Configuration and Setup
 In order to run this project locally, simply fork and clone the repository or download as zip and unzip on your machine. 
@@ -112,18 +146,29 @@ $ npm install (to install server-side dependencies)
 & npm start (to start the server)
 ```
 
-## Comment
-I intend to keep adding more features to this application, so if you like it, please give it a star, that will encourage me to 
-to keep improving the project.
+
+### If Using Cloud Formation, simply follow the below Steps.
+
+### Pre-requisites
+
+- AWS account with sufficient permissions.
+- Docker installed locally for testing containerized builds.
+## Deployment Steps
+
+- Clone the repository:
+```
+git clone https://github.com/LuvPatel/SplitApp-AWS
+```
+Configure AWS credentials locally.
+
+#### Deploy the infrastructure using CloudFormation:
+
+``` 
+aws cloudformation deploy
+```
+
+Monitor the application using **CloudWatch** and validate the deployment.
 
 ## License
 
 This project is MIT licensed.
-
-Copyright 2022 Sunny G Vaikathuparampan
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
